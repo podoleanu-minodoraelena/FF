@@ -62,7 +62,7 @@ class FordFulkersonStreamlit:
         return self.edges
 
 # --- INTERFAȚA STREAMLIT ---
-st.set_page_config(page_title="Ford-Fulkerson Visualizer", page_icon="⚡", layout="wide")
+st.set_page_config(page_title="Algoritmul Ford-Fulkerson", page_icon="⚡", layout="wide")
 
 # CSS pentru stilul Dark & Neon
 st.markdown("""
