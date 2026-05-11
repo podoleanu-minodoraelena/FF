@@ -1,12 +1,13 @@
 import streamlit as st
 import collections
 import graphviz
+import pandas as pd
 
 # --- LOGICA FORD-FULKERSON ---
 class FordFulkersonStreamlit:
-    def __init__(self, nodes, edges):
-        self.nodes = nodes
-        self.edges = edges # [{src, dst, cap, flow}]
+    def __init__(self, edges):
+        # edges vine ca o listă de dicționare din tabelul Streamlit
+        self.edges = edges 
         self.residual = {}
         self.max_flow = 0
         self.paths_found = []
@@ -14,10 +15,15 @@ class FordFulkersonStreamlit:
     def build_residual(self):
         self.residual = {}
         for e in self.edges:
-            fwd = (e['src'], e['dst'])
-            bwd = (e['dst'], e['src'])
-            self.residual[fwd] = self.residual.get(fwd, 0) + (e['cap'] - e['flow'])
-            self.residual[bwd] = self.residual.get(bwd, 0) + e['flow']
+            u, v = str(e['src']), str(e['dst'])
+            cap = int(e['cap'])
+            flow = int(e['flow'])
+            
+            fwd = (u, v)
+            bwd = (v, u)
+            
+            self.residual[fwd] = self.residual.get(fwd, 0) + (cap - flow)
+            self.residual[bwd] = self.residual.get(bwd, 0) + flow
 
     def bfs_path(self, src, dst):
         parent = {src: None}
@@ -31,7 +37,6 @@ class FordFulkersonStreamlit:
                     u = parent[u]
                 return path[::-1]
             
-            # Verificăm vecinii în graful rezidual
             for (u_res, v_res), cap in self.residual.items():
                 if u_res == u and cap > 0 and v_res not in parent:
                     parent[v_res] = u
@@ -41,25 +46,27 @@ class FordFulkersonStreamlit:
     def solve(self, src, dst):
         self.max_flow = 0
         self.paths_found = []
-        for e in self.edges: e['flow'] = 0
+        # Resetăm fluxul înainte de calcul
+        for e in self.edges: 
+            e['flow'] = 0
         
         while True:
             self.build_residual()
             path = self.bfs_path(src, dst)
-            if not path: break
+            if not path: 
+                break
             
-            # Găsim capacitatea de ameliorare (delta)
+            # Găsim capacitatea reziduală minimă pe drum (delta)
             delta = min(self.residual[(path[i], path[i+1])] for i in range(len(path)-1))
             
-            # Actualizăm fluxurile
+            # Actualizăm fluxurile în muchiile originale
             for i in range(len(path) - 1):
-                u, v = path[i], path[i+1]
-                # Actualizăm în lista de margini originale
+                u_p, v_p = path[i], path[i+1]
                 for e in self.edges:
-                    if e['src'] == u and e['dst'] == v:
+                    if str(e['src']) == u_p and str(e['dst']) == v_p:
                         e['flow'] += delta
                         break
-                    if e['src'] == v and e['dst'] == u:
+                    elif str(e['src']) == v_p and str(e['dst']) == u_p:
                         e['flow'] -= delta
                         break
             
@@ -67,12 +74,16 @@ class FordFulkersonStreamlit:
             self.paths_found.append({"path": path, "delta": delta})
 
 # --- INTERFAȚA STREAMLIT ---
-st.set_page_config(page_title="Ford-Fulkerson Visualizer", page_icon="🌊")
-st.title("🌊 Vizualizator Ford-Fulkerson (Flux Maxim)")
+st.set_page_config(page_title="Ford-Fulkerson Visualizer", page_icon="🌊", layout="wide")
 
-# Datele tale predefinite (Matricea din PDF)
-if 'edges' not in st.session_state:
-    st.session_state.edges = [
+st.title("🌊 Vizualizator Ford-Fulkerson (Flux Maxim)")
+st.markdown("""
+Această aplicație calculează fluxul maxim într-o rețea de transport folosind algoritmul **Ford-Fulkerson** (BFS / Edmonds-Karp).
+""")
+
+# Datele tale predefinite din problemă
+if 'initial_data' not in st.session_state:
+    st.session_state.initial_data = [
         {"src": "x1", "dst": "x2", "cap": 20, "flow": 0},
         {"src": "x1", "dst": "x3", "cap": 30, "flow": 0},
         {"src": "x1", "dst": "x4", "cap": 40, "flow": 0},
@@ -92,39 +103,54 @@ if 'edges' not in st.session_state:
         {"src": "x9", "dst": "x10", "cap": 42, "flow": 0},
     ]
 
-st.sidebar.header("⚙️ Configurare")
-src_node = st.sidebar.text_input("Sursă (s)", "x1")
-dst_node = st.sidebar.text_input("Destinație (t)", "x10")
+# Sidebar pentru control
+st.sidebar.header("⚙️ Setări Noduri")
+source = st.sidebar.text_input("Nod Sursă (s)", "x1")
+sink = st.sidebar.text_input("Nod Destinație (t)", "x10")
 
-st.write("### 🖋️ Muchii și Capacități (Poți să le modifici)")
-# Editor de tabel pentru a permite modificarea capacităților live
-edited_df = st.data_editor(st.session_state.edges, num_rows="dynamic")
+st.write("### 🖋️ Editare Rețea (Capacități)")
+# Tabel interactiv
+edited_df = st.data_editor(st.session_state.initial_data, num_rows="dynamic")
 
-if st.button("🚀 Calculează Fluxul Maxim"):
-    ff = FordFulkersonStreamlit(None, edited_df)
-    ff.solve(src_node, dst_node)
+if st.button("🚀 Calculează Flux Maxim"):
+    # Convertim DataFrame-ul editat în listă de dicționare
+    edges_list = edited_df if isinstance(edited_df, list) else edited_df.to_dict('records')
+    
+    ff = FordFulkersonStreamlit(edges_list)
+    ff.solve(source, sink)
     
     st.divider()
+    
     col1, col2 = st.columns([1, 2])
     
     with col1:
         st.metric("Flux Maxim Total", f"{ff.max_flow}")
-        st.write("#### 🛤️ Drumuri de ameliorare:")
+        st.write("#### 🛤️ Drumuri de Ameliorare:")
+        if not ff.paths_found:
+            st.warning("Nu s-a găsit niciun drum de la sursă la destinație.")
         for idx, p in enumerate(ff.paths_found):
-            st.write(f"**{idx+1}.** {' → '.join(p['path'])} (+{p['delta']})")
+            st.write(f"**{idx+1}.** {' → '.join(p['path'])} (Δ={p['delta']})")
 
     with col2:
-        st.write("#### 📊 Graful Rezultat")
+        st.write("#### 📊 Vizualizare Graf Rezultat")
         dot = graphviz.Digraph()
-        dot.attr(rankdir='LR', bgcolor='#0e1117')
+        dot.attr(rankdir='LR', bgcolor='#f0f2f6')
         
-        for e in edited_df:
-            color = "#27c98f" if e['flow'] > 0 else "#6b7299"
-            if e['flow'] == e['cap'] and e['cap'] > 0: color = "#f75c8d" # Saturat
+        for e in edges_list:
+            f = e['flow']
+            c = e['cap']
+            # Logica de colorare
+            edge_color = "#27c98f" if f > 0 else "#6b7299" # Verde dacă are flux, gri dacă nu
+            if f == c and c > 0: 
+                edge_color = "#f75c8d" # Roz/Roșu dacă e saturată
             
-            label = f"{e['flow']}/{e['cap']}"
-            dot.edge(e['src'], e['dst'], label=label, color=color, fontcolor=color)
+            dot.edge(str(e['src']), str(e['dst']), 
+                     label=f"{f}/{c}", 
+                     color=edge_color, 
+                     fontcolor=edge_color,
+                     penwidth="2.0" if f > 0 else "1.0")
         
-        st.graphviz_dot_widget(dot)
+        # FUNCȚIA CORECTĂ:
+        st.graphviz_chart(dot)
         
-    st.snow() # Efect vizual de succes
+    st.balloons()
