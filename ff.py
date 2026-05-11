@@ -84,7 +84,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-st.title("⚡ Ford-Fulkerson Network Optimizer")
+st.title("⚡ Algoritmul Ford-Fulkerson")
 
 # Date implicite
 if 'initial_data' not in st.session_state:
