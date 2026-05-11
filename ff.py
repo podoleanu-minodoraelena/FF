@@ -3,10 +3,10 @@ import collections
 import graphviz
 import pandas as pd
 
-# --- LOGICA FORD-FULKERSON ---
+# --- LOGICA FORD-FULKERSON (Edmonds-Karp) ---
 class FordFulkersonStreamlit:
     def __init__(self, edges_data):
-        # Primim datele editate (fără coloana flow, o adăugăm noi intern)
+        # Reconstruim lista de muchii cu flux initial 0
         self.edges = []
         for e in edges_data:
             self.edges.append({
@@ -48,12 +48,16 @@ class FordFulkersonStreamlit:
             self.build_residual()
             path = self.bfs_path(src, dst)
             if not path: break
+            
+            # Găsim capacitatea de ameliorare (gâtul de lupi)
             delta = min(self.residual[(path[i], path[i+1])] for i in range(len(path)-1))
+            
             for i in range(len(path) - 1):
                 u_p, v_p = path[i], path[i+1]
                 for e in self.edges:
                     if e['src'] == u_p and e['dst'] == v_p: e['flow'] += delta; break
                     elif e['src'] == v_p and e['dst'] == u_p: e['flow'] -= delta; break
+            
             self.max_flow += delta
             self.paths_found.append({"path": path, "delta": delta})
         return self.edges
@@ -61,18 +65,31 @@ class FordFulkersonStreamlit:
 # --- INTERFAȚA STREAMLIT ---
 st.set_page_config(page_title="Ford-Fulkerson Pro", page_icon="⚡", layout="wide")
 
-# CSS pentru un look mai atractiv
+# CSS pentru un aspect modern și Dark Mode
 st.markdown("""
     <style>
     .main { background-color: #0e1117; }
-    .stMetric { background-color: #1a1c24; padding: 15px; border-radius: 10px; border: 1px solid #4f6ef7; }
+    div[data-testid="stMetric"] { 
+        background-color: #1a1c24; 
+        padding: 20px; 
+        border-radius: 12px; 
+        border-left: 5px solid #4f6ef7;
+    }
+    .stButton>button {
+        width: 100%;
+        background-color: #4f6ef7;
+        color: white;
+        border-radius: 8px;
+        height: 3em;
+        font-weight: bold;
+    }
     </style>
-    """, unsafe_allow_value=True)
+    """, unsafe_allow_html=True)
 
-st.title("⚡ Ford-Fulkerson Network Optimizer")
-st.write("Optimizează fluxul de date în rețele complexe prin algoritmul Edmonds-Karp.")
+st.title("⚡ Ford-Fulkerson Optimizer")
+st.write("Vizualizarea fluxului maxim într-o rețea de transport.")
 
-# Datele tale predefinite (FĂRĂ coloana Flow)
+# Datele tale inițiale (FĂRĂ coloana Flow pentru a nu induce în eroare)
 if 'initial_data' not in st.session_state:
     st.session_state.initial_data = [
         {"src": "x1", "dst": "x2", "cap": 20}, {"src": "x1", "dst": "x3", "cap": 30},
@@ -86,72 +103,76 @@ if 'initial_data' not in st.session_state:
         {"src": "x9", "dst": "x10", "cap": 42}
     ]
 
-# Organizare în coloane pentru input
-col_tab, col_cfg = st.columns([2, 1])
+# Layout coloane: Tabel în stânga, Control în dreapta
+col_main, col_ctrl = st.columns([2, 1])
 
-with col_cfg:
-    st.sidebar.header("🚀 Control Panel")
-    source = st.sidebar.text_input("Nod Sursă (s)", "x1")
-    sink = st.sidebar.text_input("Nod Destinație (t)", "x10")
-    run_btn = st.sidebar.button("⚡ CALCULEAZĂ FLUX MAXIM", use_container_width=True)
-    
-    st.sidebar.markdown("---")
-    st.sidebar.info("Modifică valorile din tabelul din dreapta pentru a simula scenarii diferite.")
+with col_ctrl:
+    st.subheader("⚙️ Panou Control")
+    source = st.text_input("Nod Sursă (s)", "x1")
+    sink = st.text_input("Nod Destinație (t)", "x10")
+    run_btn = st.button("CALCULEAZĂ ACUM")
+    st.info("Algoritmul va căuta drumuri de ameliorare de la sursă la destinație până când fluxul nu mai poate fi mărit.")
 
-with col_tab:
-    st.write("### 🛠️ Configurare Capacități Rețea")
-    # Utilizatorul vede doar sursa, destinația și capacitatea
+with col_main:
+    st.subheader("🛠️ Definire Capacități Rețea")
+    # Configurăm tabelul să arate frumos
     edited_df = st.data_editor(
         st.session_state.initial_data, 
         num_rows="dynamic",
+        use_container_width=True,
         column_config={
-            "src": "Sursă",
-            "dst": "Destinație",
-            "cap": st.column_config.NumberColumn("Capacitate Maximă", min_value=1)
-        },
-        use_container_width=True
+            "src": "De la (Nod)",
+            "dst": "Către (Nod)",
+            "cap": st.column_config.NumberColumn("Capacitate", min_value=1)
+        }
     )
 
 if run_btn:
-    ff = FordFulkersonStreamlit(edited_df)
+    # Conversie date pentru algoritm
+    input_data = edited_df if isinstance(edited_df, list) else edited_df.to_dict('records')
+    
+    ff = FordFulkersonStreamlit(input_data)
     final_edges = ff.solve(source, sink)
     
     st.divider()
     
-    # Rezultate Vizuale
+    # Afișare Metrici
     m1, m2, m3 = st.columns(3)
-    m1.metric("FLUX TOTAL", f"{ff.max_flow} unități")
-    m2.metric("DRUMURI GĂSITE", len(ff.paths_found))
-    m3.metric("EFICIENȚĂ", "Maximă")
+    m1.metric("FLUX MAXIM TOTAL", f"{ff.max_flow}")
+    m2.metric("DRUMURI GASITE", len(ff.paths_found))
+    m3.metric("STATUS", "Optimizat")
 
-    res_col1, res_col2 = st.columns([1, 2])
+    res_l, res_r = st.columns([1, 2])
     
-    with res_col1:
-        st.write("#### 🛤️ Analiza Drumurilor")
+    with res_l:
+        st.write("#### 🛤️ Drumuri de Ameliorare")
+        if not ff.paths_found:
+            st.error("Nu există drum!")
         for idx, p in enumerate(ff.paths_found):
-            with st.expander(f"Drum Ameliorare #{idx+1} (+{p['delta']})"):
+            with st.expander(f"Pasul {idx+1}: Δ={p['delta']}"):
                 st.write(" → ".join(p['path']))
 
-    with col2:
-        st.write("#### 📊 Topologia Rețelei Rezultate")
+    with res_r:
+        st.write("#### 📊 Reprezentare Grafică")
         dot = graphviz.Digraph()
         dot.attr(rankdir='LR', bgcolor='transparent')
         
-        # Stil noduri
-        dot.attr('node', shape='circle', style='filled', color='#4f6ef7', fontcolor='white', fillcolor='#1e2240')
+        # Stil pentru noduri
+        dot.attr('node', shape='circle', style='filled', color='#4f6ef7', fontcolor='white', fillcolor='#1e2240', width='0.6')
         
         for e in final_edges:
             f, c = e['flow'], e['cap']
-            # Colorare dinamică
+            # Colorare inteligentă
             if f == 0:
-                color, width, style = "#6b7299", "1.0", "dashed"
+                color, style, width = "#6b7299", "dashed", "1.0"
             elif f == c:
-                color, width, style = "#f75c8d", "3.0", "solid" # Saturat (Roz neon)
+                color, style, width = "#f75c8d", "solid", "3.5" # Roz neon (Saturat)
             else:
-                color, width, style = "#27c98f", "2.5", "solid" # Activ (Verde neon)
+                color, style, width = "#27c98f", "solid", "2.5" # Verde neon (Activ)
             
-            dot.edge(e['src'], e['dst'], label=f"{f}/{c}", color=color, fontcolor=color, penwidth=width, style=style)
+            label_text = f"{f}/{c}"
+            dot.edge(e['src'], e['dst'], label=label_text, color=color, fontcolor=color, penwidth=width, style=style)
         
         st.graphviz_chart(dot)
     
-    st.toast("Calcul finalizat cu succes!", icon="💰")
+    st.balloons()
