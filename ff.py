@@ -89,28 +89,14 @@ st.title("⚡ Algoritmul Ford-Fulkerson")
 # Date implicite
 if 'initial_data' not in st.session_state:
     st.session_state.initial_data = [
-        {"src": "x1", "dst": "x2", "cap": 20},
-        {"src": "x1", "dst": "x3", "cap": 30},
-        {"src": "x1", "dst": "x4", "cap": 40},
-        
-        {"src": "x2", "dst": "x7", "cap": 27},
-        {"src": "x2", "dst": "x5", "cap": 23},
-        
-        {"src": "x3", "dst": "x5", "cap": 15},
-        {"src": "x3", "dst": "x8", "cap": 30},
-        {"src": "x3", "dst": "x6", "cap": 6},
-        
-        {"src": "x4", "dst": "x6", "cap": 20},
-        {"src": "x4", "dst": "x9", "cap": 30},
-        
-        {"src": "x5", "dst": "x7", "cap": 10},
-        {"src": "x5", "dst": "x8", "cap": 9},
-        
-        {"src": "x6", "dst": "x8", "cap": 12},  # Corectat conform sumelor de pe foaie
-        {"src": "x6", "dst": "x9", "cap": 8},   # Identificat ca x6 -> x9 cu capacitatea 8
-        
-        {"src": "x7", "dst": "x10", "cap": 31},
-        {"src": "x8", "dst": "x10", "cap": 5},
+        {"src": "x1", "dst": "x2", "cap": 20}, {"src": "x1", "dst": "x3", "cap": 30},
+        {"src": "x1", "dst": "x4", "cap": 40}, {"src": "x2", "dst": "x7", "cap": 10},
+        {"src": "x2", "dst": "x5", "cap": 12}, {"src": "x3", "dst": "x5", "cap": 8},
+        {"src": "x3", "dst": "x8", "cap": 15}, {"src": "x3", "dst": "x6", "cap": 10},
+        {"src": "x4", "dst": "x6", "cap": 9}, {"src": "x4", "dst": "x9", "cap": 11},
+        {"src": "x5", "dst": "x7", "cap": 10}, {"src": "x5", "dst": "x8", "cap": 9},
+        {"src": "x6", "dst": "x8", "cap": 12}, {"src": "x6", "dst": "x9", "cap": 8},
+        {"src": "x7", "dst": "x10", "cap": 31}, {"src": "x8", "dst": "x10", "cap": 14},
         {"src": "x9", "dst": "x10", "cap": 42}
     ]
 
