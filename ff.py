@@ -106,7 +106,7 @@ if 'initial_data' not in st.session_state:
         {"src": "x5", "dst": "x7", "cap": 10},
         {"src": "x5", "dst": "x8", "cap": 9},
         
-        {"src": "x6", "dst": "x8", "cap": 11},  # Corectat conform sumelor de pe foaie
+        {"src": "x6", "dst": "x8", "cap": 12},  # Corectat conform sumelor de pe foaie
         {"src": "x6", "dst": "x9", "cap": 8},   # Identificat ca x6 -> x9 cu capacitatea 8
         
         {"src": "x7", "dst": "x10", "cap": 31},
